@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface File {
   id: string;
@@ -17,6 +19,7 @@ const FileViewer: React.FC = () => {
         setFiles(response.data);
       } catch (error) {
         console.error("Failed to fetch files", error);
+        toast.error("Failed to fetch files!");
       }
     };
 
@@ -27,13 +30,16 @@ const FileViewer: React.FC = () => {
     try {
       await axios.delete(`${process.env.REACT_APP_API_URL}/files/${id}`);
       setFiles(currentFiles => currentFiles.filter(file => file.id !== id));
+      toast.success("File deleted successfully!");
     } catch (error) {
       console.error("Failed to delete file", error);
+      toast.error("Failed to delete file!");
     }
   };
 
   return (
     <div>
+      <ToastContainer />
       <h2>Stored Files</h2>
       {files.length > 0 ? (
         <ul>
