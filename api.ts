@@ -49,11 +49,16 @@ class ApiService {
   }
 
   private async getTransactionOptions(transaction: any, fromAddress: string): Promise<any> {
+    const gasEstimate = await this.estimateGas(transaction, fromAddress);
     return {
       to: transaction._parent._address,
       data: transaction.encodeABI(),
-      gas: await transaction.estimateGas({ from: fromAddress }),
+      gas: gasEstimate,
     };
+  }
+
+  private async estimateGas(transaction: any, fromAddress: string): Promise<number> {
+    return transaction.estimateGas({ from: fromAddress });
   }
 
   private async signTransaction(options: any, privateKey: string): Promise<any> {
@@ -75,13 +80,15 @@ class ApiService {
 
   private async requestBackend(endpoint: string, method: 'GET' | 'POST', data: any): Promise<any> {
     const apiUrl = process.env.BACKEND_API_URL || '';
-    const url = `${apiUrl}/${endpoint}`;
+    return method === 'GET' ? this.getFromBackend(apiUrl, endpoint) : this.postToBackend(apiUrl, endpoint, data);
+  }
 
-    if (method === 'GET') {
-      return (await axios.get(url)).data;
-    } else {
-      return (await axios.post(url, data)).data;
-    }
+  private async getFromBackend(apiUrl: string, endpoint: string): Promise<any> {
+    return (await axios.get(`${apiUrl}/${endpoint}`)).data;
+  }
+  
+  private async postToBackend(apiUrl: string, endpoint: string, data: any): Promise<any> {
+    return (await axios.post(`${apiUrl}/${endpoint}`, data)).data;
   }
 }
 
