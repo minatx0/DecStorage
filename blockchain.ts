@@ -1,18 +1,21 @@
 import { ethers } from "ethers";
-import { Contract, Wallet } from "ethers";
 import dotenv from 'dotenv';
 dotenv.config();
-interface Env {
+
+interface EnvironmentVariables {
   ALCHEMY_API_URL: string;
   WALLET_PRIVATE_KEY: string;
   CONTRACT_ADDRESS: string;
   CONTRACT_ABI: any;
 }
-const getEnvVars = (): Env => {
+
+const loadEnvironmentVariables = (): EnvironmentVariables => {
   const { ALCHEMY_API_URL, WALLET_PRIVATE_KEY, CONTRACT_ADDRESS, CONTRACT_ABI } = process.env;
+  
   if (!ALCHEMY_API_URL || !WALLET_PRIVATE_KEY || !CONTRACT_ADDRESS || !CONTRACT_ABI) {
-    throw new Error("Missing environment variables");
+    throw new Error("One or more required environment variables are missing.");
   }
+  
   return {
     ALCHEMY_API_URL,
     WALLET_PRIVATE_KEY,
@@ -20,38 +23,43 @@ const getEnvVars = (): Env => {
     CONTRACT_ABI: JSON.parse(CONTRACT_ABI),
   };
 }
-class BlockchainService {
-  private provider: ethers.providers.JsonRpcProvider;
-  private wallet: Wallet;
-  private contract: Contract;
-  private env: Env;
+
+class DecentralizedStorageService {
+  private blockchainProvider: ethers.providers.JsonRpcProvider;
+  private userWallet: ethers.Wallet;
+  private smartContract: ethers.Contract;
+  private envVars: EnvironmentVariables;
+  
   constructor() {
-    this.env = getEnvVars();
-    this.provider = new ethers.providers.JsonRpcProvider(this.env.ALCHEMY_API_URL);
-    this.wallet = new ethers.Wallet(this.env.WALLET_PRIVATE_KEY, this.provider);
-    this.contract = new ethers.Contract(this.env.CONTRACT_ADDRESS, this.env.CONTRACT_ABI, this.wallet);
+    this.envVars = loadEnvironmentVariables();
+    this.blockchainProvider = new ethers.providers.JsonRpcProvider(this.envVars.ALCHEMY_API_URL);
+    this.userWallet = new ethers.Wallet(this.envVars.WALLET_PRIVATE_KEY, this.blockchainProvider);
+    this.smartContract = new ethers.Contract(this.envVars.CONTRACT_ADDRESS, this.envVars.CONTRACT_ABI, this.userWallet);
   }
-  async getWalletBalance() {
-    const balance: ethers.BigNumber = await this.wallet.getBalance();
+  
+  async displayWalletBalance() {
+    const balance: ethers.BigNumber = await this.userWallet.getBalance();
     console.log(`Wallet balance: ${ethers.utils.formatEther(balance)} ETH`);
     return balance;
   }
-  async callContractMethod(methodName: string, ...args: any[]) {
+  
+  async executeContractMethod(methodName: string, ...params: any[]) {
     try {
-      const method = this.contract[methodName];
-      if (!method) {
-        throw Error(`Method ${methodName} not found in contract.`);
+      if (typeof this.smartContract[methodName] !== 'function') {
+        throw new Error(`Method "${methodName}" not found in the contract.`);
       }
-      const tx = await method(...args);
-      await tx.wait();
-      console.log(`Transaction successful with hash: ${tx.hash}`);
+      
+      const transactionResponse = await this.smartContract[methodName](...params);
+      const transactionReceipt = await transactionResponse.wait();
+      console.log(`Transaction successful with hash: ${transactionReceipt.transactionHash}`);
     } catch (error) {
-      console.error(`Error calling ${methodName} on contract: ${error}`);
+      console.error(`An error occurred executing "${methodName}" on the contract: ${error}`);
     }
   }
 }
+
 (async () => {
-  const blockchainService = new BlockchainService();
-  await blockchainService.getWalletBalance();
-  await blockchainService.callContractMethod("exampleMethodName", arg1, arg2);
+  const decentralizedStorageService = new DecentralizedStorageService();
+  await decentralizedStorageService.displayWalletBalance();
+  await decentralizedStorageService.executeContractMethod("exampleMethodName", "arg1", "arg2");
 })();
